@@ -39,7 +39,7 @@ contract Owners {
     }
 
     modifier onlyOwners() {
-        require(_isOwner[msg.sender] == true);
+        require(_isOwner[msg.sender] == true, "Owners: caller is not an owner");
         _;
     }
     

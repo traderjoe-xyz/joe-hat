@@ -107,6 +107,14 @@ describe("JoeHatContract", function () {
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(266666666666666660)
         expect(getInt(await this.hat.getHatForExactAvaxWithFees("26550000000000000000000"))).to.equal(2255457227138643000)
         expect(getInt(await this.hat.getWithdrawableByTeam())).to.equal(810000000000000000000)
+
+        // redeems 1 real Hat
+        await this.token.connect(this.bob).approve(this.hat.address, "1000000000000000000")
+        await this.hat.connect(this.bob).redeemHat()
+        expect(getInt(await this.hat.balanceOf(this.bob.address))).to.equal(147600000000000000000)
+        expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(266666666666666660)
+        expect(getInt(await this.hat.getHatForExactAvaxWithFees("26550000000000000000000"))).to.equal(2255457227138643000)
+        expect(getInt(await this.hat.getWithdrawableByTeam())).to.equal(810604026845637600000)
     })
 
     it("Seeding the contract", async function () {

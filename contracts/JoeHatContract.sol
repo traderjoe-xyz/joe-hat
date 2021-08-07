@@ -14,6 +14,7 @@ contract JoeHatContract is Owners, Context {
     uint256 public reserveHat;
     uint256 public lastHatPrice;
     uint256 public maxSupply;
+    address[] public redeemers;
     JoeHatToken hatContract;
 
 
@@ -189,6 +190,11 @@ contract JoeHatContract is Owners, Context {
 
     function burn(uint256 hatAmount) public {
         hatContract.burnFrom(_msgSender(), hatAmount);
+    }
+
+    function redeemHat() public { // only owners ? needs to be called only by the website ?
+        hatContract.burnFrom(_msgSender(), 1e18);
+        redeemers.push(_msgSender());
     }
 
     event SeedAvax(address sender, uint256 valueAVAX);

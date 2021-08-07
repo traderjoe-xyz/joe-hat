@@ -20,10 +20,11 @@ contract Owners {
     function removeOwner(address removedOwner) public onlyOwners{
         require(_isOwner[removedOwner], "Address isn't an owner!");
         uint256 lenOwner = _owners.length-1;
+        require(lenOwner >= 0, "Contract needs at least 1 owner");
         address[] memory newOwners = new address[](lenOwner);
         uint256 j;
         unchecked{
-            for (uint256 i = 0; i < lenOwner; i++) {
+            for (uint256 i = 0; i <= lenOwner; i++) {
                 j++;
                 if (_owners[i] == removedOwner) {
                     j++;

@@ -5,45 +5,90 @@ pragma solidity ^0.8.0;
 import "./Owners.sol";
 import "./JoeHatToken.sol";
 
+
+// Traderjoe's contract for $HAT
 contract JoeHatContract is Owners, Context {
+    /**
+     * @notice a/b is between 0 and 1. During a sale, 1 - a/b is kept by the contract
+     * so that it can be retrieved by the team and to encourage people to HODL
+     */
     uint256 public _a = 95;
     uint256 public _b = 100;
+
+    /// @notice k the constant of the uniswap curve.
     uint256 public k;
     uint256 public reserveAvax;
-    uint256 public reserveLowestAvax;
     uint256 public reserveHat;
+
+    /** @notice used to calculate the amount of avax the contract needs to store
+     * when initialising, it's equal to the reserveAvax (because there will never be more token).
+     */
+    uint256 public reserveLowestAvax;
+
+    /**
+     * @notice used to calculate the price of the very last token, because with uniswap
+     * you'll never be able to buy the very last token, as it diverges to infinity, (1/0)
+     */
     uint256 public lastHatPrice;
+
+    /// @notice Max Supply of $HAT, when initialising, it's equal to the circulating supply.
     uint256 public maxSupply;
+
+    /// @notice Keep a list of all the redeemers ordered by time. It will be used at some point...
     address[] public redeemers;
+
+    /// @notice The contract that owns the token (because it was minted before this contract)
     JoeHatToken hatContract;
 
-
+/**
+ * @notice Constructor of the contract, needs the address of the $HAT token, the init supply
+ * that the contract will own at start, and init price, the price in avax of the init supply.
+ */
     constructor(address joeHatAddress, uint256 init_supply, uint256 init_price) {
         hatContract = JoeHatToken(joeHatAddress);
+
+        /// @notice k = x*y = reserveHat * reserveAvax = init_supply * (init_supply * init_price)
         k = init_supply * init_supply / 1e18 * init_price / 1e18;
+
+        /**
+         * @notice we calculate the reserveHat and reserveAvax as if all the tokens were
+         * owned by the smart contract
+         */
         reserveHat = totalSupply();
         maxSupply = reserveHat;
         reserveAvax = k * 1e18 / totalSupply();
         reserveLowestAvax = reserveAvax;
+
+        /// @notice we chose the last hat to be priced 4 times the price of the one before
         lastHatPrice = k * 2;
     }
 
+    /// @notice Function used when $HAT tokens are added to the pool, i.e. when they are sold.
     function addHat(uint256 hatAdded, uint256 avaxRemoved) private {
         require(reserveHat + hatAdded <= totalSupply(), "Too much hat added");
         reserveHat += hatAdded;
         reserveAvax -= avaxRemoved;
     }
 
+    /// @notice Function used when $HAT tokens are removed from the pool, i.e. when they are bought.
     function removeHat(uint256 hatRemoved, uint256 avaxAdded) private {
         reserveHat -= hatRemoved;
         reserveAvax += avaxAdded;
     }
 
+    /**
+     * @notice VERY IMPORTANT : this needs to be called to seed the contract.
+     * if all the tokens are owned by the contract, i.e. not any of the token were or will be given, then
+     * you don't need to seed the contract.
+     * But if some tokens were given or will be, this needs to be called with the exact value of the $HAT token that
+     * were given so that if everyone sells its token, the contract have enough avax for this.
+     */
     function seedAvax() external payable onlyOwners {
         removeHat(getExactAvaxForHat(msg.value), msg.value);
         emit SeedAvax(_msgSender(), msg.value);
     }
 
+    /// @notice Function used to buy $HAT with Avax.
     function swapAvaxForHat(uint256 avaxAmount, uint256 hatAmount) private {
         hatContract.approve(_msgSender(), hatAmount);
         hatContract.transfer(_msgSender(), hatAmount);
@@ -53,6 +98,10 @@ contract JoeHatContract is Owners, Context {
         emit SwapAvaxForHat(avaxAmount, hatAmount);
     }
 
+    /**
+     * @notice Function used to buy $HAT with ExactAvax.
+     * User send X avax, the contract calculate how much $HAT he will receive.
+     */
     function swapExactAvaxForHat() external payable returns (bool) {
         uint256 hatAmount = getExactAvaxForHat(msg.value);
 
@@ -61,6 +110,10 @@ contract JoeHatContract is Owners, Context {
         return true;
     }
 
+    /**
+     * @notice Function used to sell $HAT with Avax.
+     * User send X avax, the contract calculate how much $HAT he will receive.
+     */
     function swapExactHatForAvaxWithFees(uint256 hatAmount) external returns (bool) {
         uint256 avaxAmount = _getExactHatForAvax(hatAmount);
         uint256 avaxAmountWithFees = getExactHatForAvaxWithFees(hatAmount);
@@ -74,15 +127,26 @@ contract JoeHatContract is Owners, Context {
         return true;
     }
 
-
+    /**
+     * @notice Function used to get $HAT amount for a given amount of Avax.
+     * only for the last Hat
+     */
     function _getExactAvaxForLastHat(uint256 avaxAmount) private view returns (uint256) {
         return avaxAmount * 1e18 / lastHatPrice;
     }
 
+    /**
+     * @notice Function used to get Avax amount for a given amount of $HAT.
+     * only for the last Hat
+     */
     function _getAvaxForExactLastHat(uint256 hatAmount) private view returns (uint256) {
         return lastHatPrice / 1e18 * hatAmount;
     }
 
+    /**
+     * @notice Function used to get Avax amount for a given amount of $HAT.
+     * for [1, 150] hats.
+     */
     function getExactAvaxForHat(uint256 avaxAmount) public view returns (uint256) {
         require(reserveAvax + avaxAmount <= k + lastHatPrice, "getExactAvaxForHat: Not enough hat in reserve");
         // this is added for the VERY last hat

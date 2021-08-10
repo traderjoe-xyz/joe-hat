@@ -128,7 +128,7 @@ contract JoeHatContract is Owners, Context{
     function teamWithdraw() public onlyOwners {
         uint256 teamBalance = getWithdrawableByTeam();
         payable(_msgSender()).transfer(teamBalance);
-        emit TeamWithdraw(teamBalance);
+        emit TeamWithdrawal(teamBalance);
     }
     
     function getWithdrawableByTeam() public view returns (uint256) {
@@ -152,5 +152,5 @@ contract JoeHatContract is Owners, Context{
     event SetRatio(uint256 a, uint256 b);
     event SwapAvaxForHat(uint256 avaxAmount, uint256 hatAmount);
     event SwapHatForAvax(uint256 hatAmount, uint256 avaxAmount);
-    event TeamWithdraw(uint256 teamBalance);
+    event TeamWithdrawal(uint256 teamBalance);
 }

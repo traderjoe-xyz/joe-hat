@@ -53,7 +53,7 @@ describe("JoeHatContract", function () {
         expect(getInt(await this.hat.reserveHat())).to.equal(135000000000000000000)
 
 
-        const avaxAmount = await this.hat.getAvaxForExactHat("15000000000000000000")
+        const avaxAmount = await this.hat.calculateExactHatForAvax("15000000000000000000")
         await this.hat.connect(this.bob).swapExactAvaxForHat({value: avaxAmount})
         expect(getInt(await this.hat.balanceOf(this.bob.address))).to.equal(30000000000000000000)
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(120000000000000000000)
@@ -65,7 +65,7 @@ describe("JoeHatContract", function () {
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(135000000000000000000)
 
 
-        const hatAmount = await this.hat.getHatForExactAvaxWithFees("9500000000000000000")
+        const hatAmount = await this.hat.calculateExactAvaxForHatWithFees("9500000000000000000")
         await this.hat.connect(this.bob).swapExactHatForAvaxWithFees(hatAmount)
         expect(getInt(await this.hat.balanceOf(this.bob.address))).to.equal(0)
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(150000000000000000000)
@@ -74,14 +74,14 @@ describe("JoeHatContract", function () {
 
     it("should buy all the stock", async function () {
         // buys 148.6 hats
-        const avaxAmount = await this.hat.getAvaxForExactHat("148600000000000000000")
+        const avaxAmount = await this.hat.calculateExactHatForAvax("148600000000000000000")
         await this.hat.connect(this.bob).swapExactAvaxForHat({value: avaxAmount})
         expect(getInt(await this.hat.balanceOf(this.bob.address))).to.equal(148600000000000000000)
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(1400000000000000000)
 
 
         // buys 0.6 hats
-        const avaxAmount2 = await this.hat.getAvaxForExactHat("600000000000000000")
+        const avaxAmount2 = await this.hat.calculateExactHatForAvax("600000000000000000")
         await this.hat.connect(this.alice).swapExactAvaxForHat({value: avaxAmount2})
         expect(getInt(await this.hat.balanceOf(this.alice.address))).to.equal(600000000000000000)
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(800000000000000000)
@@ -105,16 +105,23 @@ describe("JoeHatContract", function () {
         await this.hat.connect(this.carol).swapExactAvaxForHat({value: "9000000000000000000000"})
         expect(getInt(await this.hat.balanceOf(this.carol.address))).to.equal(333333333333333300)
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(266666666666666660)
-        expect(getInt(await this.hat.getHatForExactAvaxWithFees("26550000000000000000000"))).to.equal(2255457227138643000)
-        expect(getInt(await this.hat.getWithdrawableByTeam())).to.equal(810000000000000000000)
+        expect(getInt(await this.hat.calculateExactAvaxForHatWithFees("26550000000000000000000"))).to.equal(2255457227138643000)
+        expect(getInt(await this.hat.getTeamBalance())).to.equal(810000000000000000000)
 
         // redeems 1 real Hat
         await this.token.connect(this.bob).approve(this.hat.address, "1000000000000000000")
         await this.hat.connect(this.bob).redeemHat()
         expect(getInt(await this.hat.balanceOf(this.bob.address))).to.equal(147600000000000000000)
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(266666666666666660)
-        expect(getInt(await this.hat.getHatForExactAvaxWithFees("26550000000000000000000"))).to.equal(2255457227138643000)
-        expect(getInt(await this.hat.getWithdrawableByTeam())).to.equal(810604026845637600000)
+        expect(getInt(await this.hat.calculateExactAvaxForHatWithFees("26550000000000000000000"))).to.equal(2255457227138643000)
+        expect(getInt(await this.hat.getTeamBalance())).to.equal(810604026845637600000)
+
+
+        // withdraw team balance
+
+        await expect(this.hat.connect(this.bob).withdrawTeamBalance()).to.be.revertedWith("Owners: caller is not an owner")
+        await this.hat.withdrawTeamBalance()
+        expect(getInt(await this.hat.getTeamBalance())).to.equal(0)
     })
 
     it("Seeding the contract", async function () {

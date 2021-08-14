@@ -16,6 +16,7 @@ describe("JoeHatContract", function () {
         this.dave = this.signers[3]
         this.malaury = this.signers[4]
         this.susie = this.signers[5]
+        this.owner = this.signers[6]
     })
 
     beforeEach(async function () {
@@ -119,8 +120,14 @@ describe("JoeHatContract", function () {
 
         // withdraw team balance
 
-        await expect(this.hat.connect(this.bob).withdrawTeamBalance()).to.be.revertedWith("Owners: caller is not an owner")
-        await this.hat.withdrawTeamBalance()
+        await expect(this.hat.connect(this.bob).withdrawTeamBalance()).to.be.revertedWith("Ownable: caller is not the owner")
+        await this.hat.transferOwnership(this.owner.address)
+
+        const prov = ethers.provider;
+        const balance = await prov.getBalance(this.owner.address)
+        await this.hat.connect(this.owner).withdrawTeamBalance()
+
+        expect(await prov.getBalance(this.owner.address)).to.be.above(balance)
         expect(getInt(await this.hat.getTeamBalance())).to.equal(0)
     })
 
@@ -128,7 +135,7 @@ describe("JoeHatContract", function () {
         await this.hat.seedAvax({value: "10000000000000000000"});
         expect(getInt(await this.hat.reserveAvax())).to.equal(100000000000000000000)
 
-        await expect(this.hat.connect(this.bob).seedAvax({value: "10000000000000000000"})).to.be.revertedWith("Owners: caller is not an owner")
+        await expect(this.hat.connect(this.bob).seedAvax({value: "10000000000000000000"})).to.be.revertedWith("Ownable: caller is not the owner")
     })
 
     after(async function () {

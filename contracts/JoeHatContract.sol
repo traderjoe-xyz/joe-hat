@@ -2,12 +2,12 @@
 
 pragma solidity ^0.8.0;
 
-import "./Owners.sol";
 import "./JoeHatToken.sol";
+import "./access/Ownable.sol";
 
 
 // Traderjoe's contract for $HAT
-contract JoeHatContract is Owners, Context {
+contract JoeHatContract is Ownable {
     /// @notice a/b is between 0 and 1. During a sale, 1 - a/b is kept by the contract
     /// so that it can be retrieved by the team and to encourage people to HODL.
     uint256 public _a = 95;
@@ -97,7 +97,7 @@ contract JoeHatContract is Owners, Context {
      *
      * Emits a {SeedAvax} event.
      */
-    function seedAvax() external payable onlyOwners {
+    function seedAvax() external payable onlyOwner {
         removeHat(calculateHatForExactAvax(msg.value), msg.value);
         emit SeedAvax(_msgSender(), msg.value);
     }
@@ -369,7 +369,7 @@ contract JoeHatContract is Owners, Context {
      *
      * Emits a {TeamWithdraw} events.
      */
-    function withdrawTeamBalance() public onlyOwners {
+    function withdrawTeamBalance() public onlyOwner {
         uint256 teamBalance = getTeamBalance();
         payable(_msgSender()).transfer(teamBalance);
         emit TeamWithdraw(teamBalance);

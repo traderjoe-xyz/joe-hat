@@ -195,7 +195,7 @@ contract JoeHatContract is Ownable {
      * @return hatAmount - Amount of $HAT to receive.
      */
     function calculateHatForExactAvax(uint256 avaxAmount) public view returns (uint256) {
-        require(reserveAvax + avaxAmount <= k + lastHatPriceInAvax, "getExactAvaxForHat: Not enough hat in reserve");
+        require(reserveAvax + avaxAmount <= k + lastHatPriceInAvax, "calculateHatForExactAvax: Not enough hat in reserve");
         /// this is added for the VERY last hat
         /// This tests if when user buy that amount he will be buying at least a bit of the last Hat
         /// it needs to check this because the last hat doesn't use the same function
@@ -223,7 +223,7 @@ contract JoeHatContract is Ownable {
      * @return avaxAmount - Amount of Avax to receive.
      */
     function calculateExactHatForAvax(uint256 hatAmount) public view returns (uint256) {
-        require(reserveHat >= hatAmount, "getAvaxForExactHat: Not enough HAT in reserve");
+        require(reserveHat >= hatAmount, "calculateExactHatForAvax: Not enough HAT in reserve");
         /// this is added for the VERY last hat
         /// This tests if when user buy that amount he will be buying at least a bit of the last Hat
         /// it needs to check this because the last hat doesn't use the same function
@@ -257,7 +257,7 @@ contract JoeHatContract is Ownable {
         uint256 avaxAmountWithFees = avaxAmount * _b / _a;
         uint256 hatAmountWithFees = _calculateExactAvaxForHat(avaxAmountWithFees);
 
-        require(reserveHat + hatAmountWithFees <= maxSupply, "getHatForExactAvaxWithFees : Too much hat sold");
+        require(reserveHat + hatAmountWithFees <= maxSupply, "calculateExactAvaxForHatWithFees : Too much hat sold");
         return hatAmountWithFees;
     }
 
@@ -270,7 +270,7 @@ contract JoeHatContract is Ownable {
      * @return avaxAmount - Amount of Avax to receive.
      */
     function calculateAvaxForExactHatWithFees(uint256 hatAmount) public view returns (uint256) {
-        require(reserveHat + hatAmount <= maxSupply, "getExactHatForAvaxWithFees : Too much hat sold");
+        require(reserveHat + hatAmount <= maxSupply, "calculateAvaxForExactHatWithFees : Too much hat sold");
         return _calculateAvaxForExactHat(hatAmount * _a / _b);
     }
 
@@ -283,7 +283,7 @@ contract JoeHatContract is Ownable {
      * @return hatAmount - Amount of $HAT to receive.
      */
     function _calculateExactAvaxForHat(uint256 avaxAmount) private view returns (uint256) {
-        require(reserveAvax - reserveLowestAvax >= avaxAmount, "_getHatForExactAvax: Too many hat sold");
+        require(reserveAvax - reserveLowestAvax >= avaxAmount, "_calculateExactAvaxForHat: Too many hat sold");
         /// this is added for the VERY last hat
         /// This tests if when user buy that amount he will be buying at least a bit of the last Hat
         /// it needs to check this because the last hat doesn't use the same function
@@ -382,6 +382,9 @@ contract JoeHatContract is Ownable {
      * @return teamBalance - the tokens that are owned by the contract that are not needed.
      */
     function getTeamBalance() public view returns (uint256) {
+        if (address(this).balance == 0) {
+            return 0;
+        }
         return address(this).balance - _calculateAvaxForExactHat(totalSupply() - balanceOf(address(this)));
     }
 

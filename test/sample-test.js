@@ -9,6 +9,7 @@ describe("JoeHatContract", function () {
     before(async function () {
         this.JoeHatToken = await ethers.getContractFactory("JoeHatToken")
         this.JoeHatContract = await ethers.getContractFactory("JoeHatContract")
+        this.JoeHatNFT = await ethers.getContractFactory("JoeHatNFT")
         this.signers = await ethers.getSigners()
         this.alice = this.signers[0]
         this.bob = this.signers[1]
@@ -23,10 +24,14 @@ describe("JoeHatContract", function () {
         this.token = await this.JoeHatToken.deploy();
         await this.token.deployed();
 
-        this.hat = await this.JoeHatContract.deploy(this.token.address, "30000000000000000000", "15000000000000000000")
+        this.nft = await this.JoeHatNFT.deploy();
+        await this.nft.deployed();
+
+        this.hat = await this.JoeHatContract.deploy(this.nft.address, this.token.address, "30000000000000000000", "15000000000000000000")
         await this.hat.deployed()
 
         await this.token.transfer(this.hat.address, "150000000000000000000")
+        await this.nft.grantRole("0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6", this.hat.address)
     })
 
     it("should have correct totalSupply, reserveHat, reserveAvax, k, _a, _b", async function () {

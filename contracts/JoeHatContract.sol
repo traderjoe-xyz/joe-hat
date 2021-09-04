@@ -8,7 +8,7 @@ import "./access/Ownable.sol";
 
 
 // Traderjoe's contract for $HAT
-contract JoeHatContract is Ownable, JoeHatNFT {
+contract JoeHatContract is Ownable {
     /// @notice a/b is between 0 and 1. During a sale, 1 - a/b is kept by the contract
     /// so that it can be retrieved by the team and to encourage people to HODL.
     uint256 public _a = 95;

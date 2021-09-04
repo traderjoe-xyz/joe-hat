@@ -3,11 +3,12 @@
 pragma solidity ^0.8.0;
 
 import "./JoeHatToken.sol";
+import "./JoeHatNFT.sol";
 import "./access/Ownable.sol";
 
 
 // Traderjoe's contract for $HAT
-contract JoeHatContract is Ownable {
+contract JoeHatContract is Ownable, JoeHatNFT {
     /// @notice a/b is between 0 and 1. During a sale, 1 - a/b is kept by the contract
     /// so that it can be retrieved by the team and to encourage people to HODL.
     uint256 public _a = 95;
@@ -35,6 +36,9 @@ contract JoeHatContract is Ownable {
     /// @notice The contract that owns the token (because it was minted before this contract)
     JoeHatToken hatContract;
 
+    /// @notice The contract that will mint the NFTs.
+    JoeHatNFT nftContract;
+
 
     /**
      * @notice Constructor of the contract, needs the address of the $HAT token, the init supply
@@ -44,8 +48,9 @@ contract JoeHatContract is Ownable {
      * @param init_supply - $HAT initial supply.
      * @param init_price - $HAT initial price.
      */
-    constructor(address joeHatAddress, uint256 init_supply, uint256 init_price) {
+    constructor(address joeHatNFTAddress, address joeHatAddress, uint256 init_supply, uint256 init_price) {
         hatContract = JoeHatToken(joeHatAddress);
+        nftContract = JoeHatNFT(joeHatNFTAddress);
 
         /// @notice k = x*y = reserveHat * reserveAvax = init_supply * (init_supply * init_price).
         k = init_supply * init_supply / 1e18 * init_price / 1e18;
@@ -423,6 +428,7 @@ contract JoeHatContract is Ownable {
      */
     function redeemHat() public {
         hatContract.burnFrom(_msgSender(), 1e18);
+        nftContract.mint(_msgSender());
         redeemers.push(_msgSender());
     }
 

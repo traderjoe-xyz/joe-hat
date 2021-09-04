@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import "./ERC20/extensions/ERC20Burnable.sol";
+import "./token/ERC20/extensions/ERC20Burnable.sol";
 
 contract JoeHatToken is ERC20Burnable {
     /**

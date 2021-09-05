@@ -4,7 +4,8 @@ pragma solidity ^0.8.0;
 
 import "./JoeHatToken.sol";
 import "./JoeHatNFT.sol";
-import "./access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
 
 
 // Traderjoe's contract for $HAT

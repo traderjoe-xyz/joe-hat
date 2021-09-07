@@ -79,6 +79,9 @@ contract JoeHatBondingCurve is Ownable {
         _removeHat(hatAmount, msg.value);
 
         emit SwapAvaxForHat(avaxAmount, hatAmount);
+        
+        // TODO: What's the point of returning a boolean, 
+        // especially since you never return false?
         return true;
     }
 
@@ -108,6 +111,9 @@ contract JoeHatBondingCurve is Ownable {
         _addHat(hatAmount, avaxAmount);
 
         emit SwapHatForAvax(hatAmount, avaxAmountWithFees);
+
+        // TODO: What's the point of returning a boolean, 
+        // especially since you never return false?
         return true;
     }
 

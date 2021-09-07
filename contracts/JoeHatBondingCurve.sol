@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * @notice Allows buying/selling of HATs to AVAX along a bonding curve.
  * @author LouisMeMyself
  */
-contract JoeHatBondingCurveContract is Ownable {
+contract JoeHatBondingCurve is Ownable {
     /// @notice a/b is between 0 and 1. During a sale, 1 - a/b is kept by the contract
     /// so that it can be retrieved by the team and to encourage people to HODL.
     uint256 public _a = 95;

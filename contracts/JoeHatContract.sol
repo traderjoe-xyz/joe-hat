@@ -337,8 +337,8 @@ contract JoeHatBondingCurveContract is Ownable {
     }
 
     /**
-     * @notice Withdraws the team funds, which is equal to the amount of AVAX kept by the contract
-     * that aren't needed if everyone sells their tokens.
+     * @notice Withdraws the team funds, which is equal to the amount of AVAX kept by 
+     * the contract that aren't needed if everyone sells their tokens.
      */
     function withdrawTeamBalance() public onlyOwner {
         uint256 teamBalance = getTeamBalance();
@@ -349,8 +349,9 @@ contract JoeHatBondingCurveContract is Ownable {
     /*** Token functions ***/
 
     /**
-     * @notice Gets the team AVAX balance, which is calculated by taking the AVAX balance of the contract
-     * and removing the AVAX needed to pay everyone if all HODLers sell all their tokens.
+     * @notice Gets the team AVAX balance, which is calculated by taking the AVAX 
+     * balance of the contract and removing the AVAX needed to pay everyone if all 
+     * HODLers sell all their tokens.
      * @return teamBalance - The amount of AVAX owned by the contract but not needed.
      */
     function getTeamBalance() public view returns (uint256) {

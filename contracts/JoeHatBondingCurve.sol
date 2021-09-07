@@ -12,6 +12,19 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * @author LouisMeMyself
  */
 contract JoeHatBondingCurve is Ownable {
+
+    /// @notice Emitted when an owner seed the contract with valueAvax Avax.
+    event SeedAvax(address sender, uint256 valueAVAX);
+
+    /// @notice Emitted swapping Avax for Hat.
+    event SwapAvaxForHat(uint256 avaxAmount, uint256 hatAmount);
+
+    /// @notice Emitted swapping Hat for Avax.
+    event SwapHatForAvax(uint256 hatAmount, uint256 avaxAmount);
+
+    /// @notice Emitted when an owner withdraw the tokens of the team balance.
+    event TeamWithdraw(uint256 teamBalance);
+
     /// @notice a/b is between 0 and 1. During a sale, 1 - a/b is kept by the contract
     /// so that it can be retrieved by the team and to encourage people to HODL.
     uint256 public _a = 95;
@@ -399,24 +412,4 @@ contract JoeHatBondingCurve is Ownable {
         hatNft.mint(_msgSender());
         redeemers.push(_msgSender());
     }
-
-    /**
-     * @notice Emitted when an owner seed the contract with valueAvax Avax.
-     */
-    event SeedAvax(address sender, uint256 valueAVAX);
-
-    /**
-     * @notice Emitted swapping Avax for Hat.
-     */
-    event SwapAvaxForHat(uint256 avaxAmount, uint256 hatAmount);
-
-    /**
-     * @notice Emitted swapping Hat for Avax.
-     */
-    event SwapHatForAvax(uint256 hatAmount, uint256 avaxAmount);
-
-    /**
-     * @notice Emitted when an owner withdraw the tokens of the team balance.
-     */
-    event TeamWithdraw(uint256 teamBalance);
 }

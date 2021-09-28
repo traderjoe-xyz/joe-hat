@@ -5,10 +5,10 @@ function getInt(value) {
     return parseInt(value._hex, 16)
 }
 
-describe("JoeHatContract", function () {
+describe("JoeHatBondingCurve", function () {
     before(async function () {
         this.JoeHatToken = await ethers.getContractFactory("JoeHatToken")
-        this.JoeHatContract = await ethers.getContractFactory("JoeHatContract")
+        this.JoeHatBondingCurve = await ethers.getContractFactory("JoeHatBondingCurve")
         this.JoeHatNFT = await ethers.getContractFactory("JoeHatNFT")
         this.signers = await ethers.getSigners()
         this.alice = this.signers[0]
@@ -27,7 +27,7 @@ describe("JoeHatContract", function () {
         this.nft = await this.JoeHatNFT.deploy();
         await this.nft.deployed();
 
-        this.hat = await this.JoeHatContract.deploy(this.nft.address, this.token.address, "30000000000000000000", "15000000000000000000")
+        this.hat = await this.JoeHatBondingCurve.deploy(this.nft.address, this.token.address, "30000000000000000000", "15000000000000000000")
         await this.hat.deployed()
 
         await this.token.transfer(this.hat.address, "150000000000000000000")
@@ -35,12 +35,20 @@ describe("JoeHatContract", function () {
     })
 
     it("should have correct totalSupply, reserveHat, reserveAvax, k, _a, _b", async function () {
-        const totalSupply = getInt(await this.hat.totalSupply())
-        const reserveHat = getInt(await this.hat.reserveHat())
-        const reserveAvax = getInt(await this.hat.reserveAvax())
-        const k = getInt(await this.hat.k())
-        const _a = getInt(await this.hat._a())
-        const _b = getInt(await this.hat._b())
+        const results = await Promise.all([
+            this.hat.totalSupply(),
+            this.hat.reserveHat(),
+            this.hat.reserveAvax(),
+            this.hat.k(),
+            this.hat._a(),
+            this.hat._b()
+        ])
+        const totalSupply = getInt(results[0])
+        const reserveHat = getInt(results[1])
+        const reserveAvax = getInt(results[2])
+        const k = getInt(results[3])
+        const _a = getInt(results[4])
+        const _b = getInt(results[5])
 
         // console.log(totalSupply, reserveHat, reserveAvax, k, _a, _b)
 
@@ -54,40 +62,57 @@ describe("JoeHatContract", function () {
 
     it("should have correct number of hat / avax when swapping", async function () {
         await this.hat.connect(this.bob).swapExactAvaxForHat({value: "10000000000000000000"})
-        expect(getInt(await this.hat.balanceOf(this.bob.address))).to.equal(15000000000000000000)
-        expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(135000000000000000000)
-        expect(getInt(await this.hat.reserveHat())).to.equal(135000000000000000000)
+
+        let results = await Promise.all([
+            this.hat.balanceOf(this.bob.address),
+            this.hat.balanceOf(this.hat.address),
+            this.hat.reserveHat()
+        ])
+        expect(getInt(results[0])).to.equal(15000000000000000000)
+        expect(getInt(results[1])).to.equal(135000000000000000000)
+        expect(getInt(results[2])).to.equal(135000000000000000000)
 
 
-        const avaxAmount = await this.hat.calculateExactHatForAvax("15000000000000000000")
+        const avaxAmount = await this.hat.getAvaxAmountInForExactHatAmountOut("15000000000000000000")
         await this.hat.connect(this.bob).swapExactAvaxForHat({value: avaxAmount})
-        expect(getInt(await this.hat.balanceOf(this.bob.address))).to.equal(30000000000000000000)
-        expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(120000000000000000000)
+        results = await Promise.all([
+            this.hat.balanceOf(this.bob.address),
+            this.hat.balanceOf(this.hat.address),
+            this.token.connect(this.bob).approve(this.hat.address, "30000000000000000000")
+        ])
+        expect(getInt(results[0])).to.equal(30000000000000000000)
+        expect(getInt(results[1])).to.equal(120000000000000000000)
 
-
-        await this.token.connect(this.bob).approve(this.hat.address, "30000000000000000000")
         await this.hat.connect(this.bob).swapExactHatForAvaxWithFees("15000000000000000000")
-        expect(getInt(await this.hat.balanceOf(this.bob.address))).to.equal(15000000000000000000)
-        expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(135000000000000000000)
+        results = await Promise.all([
+            this.hat.balanceOf(this.bob.address),
+            this.hat.balanceOf(this.hat.address)
+        ])
+        expect(getInt(results[0])).to.equal(15000000000000000000)
+        expect(getInt(results[1])).to.equal(135000000000000000000)
 
 
-        const hatAmount = await this.hat.calculateExactAvaxForHatWithFees("9500000000000000000")
+        const hatAmount = await this.hat.getHatAmountInForExactAvaxAmountOutWithFees("9500000000000000000")
         await this.hat.connect(this.bob).swapExactHatForAvaxWithFees(hatAmount)
-        expect(getInt(await this.hat.balanceOf(this.bob.address))).to.equal(0)
-        expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(150000000000000000000)
+        results = await Promise.all([
+            this.hat.balanceOf(this.bob.address),
+            this.hat.balanceOf(this.hat.address)
+        ])
+        expect(getInt(results[0])).to.equal(0)
+        expect(getInt(results[1])).to.equal(150000000000000000000)
     })
 
 
     it("should buy all the stock", async function () {
         // buys 148.6 hats
-        const avaxAmount = await this.hat.calculateExactHatForAvax("148600000000000000000")
+        const avaxAmount = await this.hat.getAvaxAmountInForExactHatAmountOut("148600000000000000000")
         await this.hat.connect(this.bob).swapExactAvaxForHat({value: avaxAmount})
         expect(getInt(await this.hat.balanceOf(this.bob.address))).to.equal(148600000000000000000)
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(1400000000000000000)
 
 
         // buys 0.6 hats
-        const avaxAmount2 = await this.hat.calculateExactHatForAvax("600000000000000000")
+        const avaxAmount2 = await this.hat.getAvaxAmountInForExactHatAmountOut("600000000000000000")
         await this.hat.connect(this.alice).swapExactAvaxForHat({value: avaxAmount2})
         expect(getInt(await this.hat.balanceOf(this.alice.address))).to.equal(600000000000000000)
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(800000000000000000)
@@ -111,7 +136,7 @@ describe("JoeHatContract", function () {
         await this.hat.connect(this.carol).swapExactAvaxForHat({value: "9000000000000000000000"})
         expect(getInt(await this.hat.balanceOf(this.carol.address))).to.equal(333333333333333300)
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(266666666666666660)
-        expect(getInt(await this.hat.calculateExactAvaxForHatWithFees("26550000000000000000000"))).to.equal(2255457227138643000)
+        expect(getInt(await this.hat.getHatAmountInForExactAvaxAmountOutWithFees("26550000000000000000000"))).to.equal(2255457227138643000)
         expect(getInt(await this.hat.getTeamBalance())).to.equal(810000000000000000000)
 
         // redeems 1 real Hat
@@ -119,7 +144,7 @@ describe("JoeHatContract", function () {
         await this.hat.connect(this.bob).redeemHat()
         expect(getInt(await this.hat.balanceOf(this.bob.address))).to.equal(147600000000000000000)
         expect(getInt(await this.hat.balanceOf(this.hat.address))).to.equal(266666666666666660)
-        expect(getInt(await this.hat.calculateExactAvaxForHatWithFees("26550000000000000000000"))).to.equal(2255457227138643000)
+        expect(getInt(await this.hat.getHatAmountInForExactAvaxAmountOutWithFees("26550000000000000000000"))).to.equal(2255457227138643000)
         expect(getInt(await this.hat.getTeamBalance())).to.equal(810604026845637600000)
 
 

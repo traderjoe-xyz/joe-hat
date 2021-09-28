@@ -82,35 +82,30 @@ contract JoeHatBondingCurve is Ownable {
 
     /**
      * @notice Sells a given amount of AVAX for HAT.
-     * @return true - If swap was successful.
      */
-    function swapExactAvaxForHat() external payable returns (bool) {
+    function swapExactAvaxForHat() external payable {
         uint256 hatAmount = getHatAmountOutForExactAvaxAmountIn(msg.value);
 
         hatToken.transfer(_msgSender(), hatAmount);
 
         _removeHat(hatAmount, msg.value);
 
-        emit SwapAvaxForHat(avaxAmount, hatAmount);
-        
-        // TODO: What's the point of returning a boolean, 
-        // especially since you never return false?
-        return true;
+        emit SwapAvaxForHat(msg.value, hatAmount);
     }
 
     /**
      * @notice Buys a given amount of HAT for AVAX.
+     * @param hatAmount - The amount of HAT.
      */
-    function swapAvaxForExactHat() {
-      // TODO
-    }
+//    function swapAvaxForExactHat(uint256 hatAmount) {
+//        // TODO
+//    }
 
     /**
      * @notice Sells a given amount of HAT for AVAX with fees deducted.
      * @param hatAmount - The amount of HAT to swap for AVAX.
-     * @return true - If swap was successful.
      */
-    function swapExactHatForAvaxWithFees(uint256 hatAmount) external returns (bool) {
+    function swapExactHatForAvaxWithFees(uint256 hatAmount) external {
         /// Amount that should be sent to the _msgSender, used for the reserveAvax of the contract
         uint256 avaxAmount = _getAvaxAmountOutForExactHatAmountIn(hatAmount);
 
@@ -124,18 +119,14 @@ contract JoeHatBondingCurve is Ownable {
         _addHat(hatAmount, avaxAmount);
 
         emit SwapHatForAvax(hatAmount, avaxAmountWithFees);
-
-        // TODO: What's the point of returning a boolean, 
-        // especially since you never return false?
-        return true;
     }
 
     /**
      * @notice Buys a given amount of AVAX for HAT with fees deducted.
      */
-    function swapHatForExactAvaxWithFees() {
-      // TODO
-    }
+//    function swapHatForExactAvaxWithFees() {
+//        // TODO
+//    }
 
     /**
      * @notice Calculates the amount of HAT received if a given amount of AVAX is sold.
@@ -374,7 +365,7 @@ contract JoeHatBondingCurve is Ownable {
      * @return teamBalance - The amount of AVAX owned by the contract but not needed.
      */
     function getTeamBalance() public view returns (uint256) {
-        if (address(this).balance == 0) {
+        if (address(this).balance < _getAvaxAmountOutForExactHatAmountIn(totalSupply() - balanceOf(address(this)))) {
             return 0;
         }
         return address(this).balance - _getAvaxAmountOutForExactHatAmountIn(totalSupply() - balanceOf(address(this)));
@@ -388,6 +379,7 @@ contract JoeHatBondingCurve is Ownable {
     function balanceOf(address account) public view returns (uint256){
         return hatToken.balanceOf(account);
     }
+
     /**
      * @notice Gets total supply of HAT.
      * @return Returns the amount of HAT in existence.

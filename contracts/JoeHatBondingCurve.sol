@@ -83,8 +83,10 @@ contract JoeHatBondingCurve is Ownable {
     /**
      * @notice Sells a given amount of AVAX for HAT.
      */
-    function swapExactAvaxForHat() external payable {
+    function swapExactAvaxForHat(uint256 minHatAmount) external payable {
         uint256 hatAmount = getHatAmountOutForExactAvaxAmountIn(msg.value);
+
+        require(hatAmount >= minHatAmount, "Front run");
 
         hatToken.transfer(_msgSender(), hatAmount);
 
@@ -105,12 +107,15 @@ contract JoeHatBondingCurve is Ownable {
      * @notice Sells a given amount of HAT for AVAX with fees deducted.
      * @param hatAmount - The amount of HAT to swap for AVAX.
      */
-    function swapExactHatForAvaxWithFees(uint256 hatAmount) external {
+    function swapExactHatForAvaxWithFees(uint256 hatAmount, uint256 minAvaxAmount) external {
         /// Amount that should be sent to the _msgSender, used for the reserveAvax of the contract
         uint256 avaxAmount = _getAvaxAmountOutForExactHatAmountIn(hatAmount);
 
+
         /// Amount that is sent to the _msgSender, approx equal to avaxAmount*a/b
         uint256 avaxAmountWithFees = getAvaxAmountOutForExactHatAmountInWithFees(hatAmount);
+
+        require(avaxAmountWithFees >= minAvaxAmount, "Front run");
 
         hatToken.transferFrom(_msgSender(), address(this), hatAmount);
         payable(_msgSender()).transfer(avaxAmountWithFees);

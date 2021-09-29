@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.0;
 
-import "./JoeHatToken.sol";
-import "./JoeHatNFT.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import './JoeHatToken.sol';
+import './JoeHatNFT.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
 
 /**
  * @title Trader Joe's bonding curve contract for the HAT token.
@@ -13,8 +13,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  */
 contract JoeHatBondingCurve is Ownable {
 
-    /// @notice Emitted when an owner seed the contract with valueAvax Avax.
-    event SeedAvax(address sender, uint256 valueAVAX);
+    /// @notice Emitted when an owner seed the contract with amountAvax $AVAX and hatAmount $HAT.
+    event SeedContract(address sender, uint256 avaxAmount, uint256 hatAmount);
 
     /// @notice Emitted swapping Avax for Hat.
     event SwapAvaxForHat(uint256 avaxAmount, uint256 hatAmount);
@@ -32,25 +32,20 @@ contract JoeHatBondingCurve is Ownable {
 
     /// @notice k the constant of the uniswap curve.
     uint256 public k;
-    uint256 public reserveAvax;
-    uint256 public reserveHat;
-
-    /// @notice Used to calculate the amount of avax the contract needs to store
-    /// when initialising, it's equal to the reserveAvax (because there will never be more token).
-    uint256 public reserveLowestAvax;
 
     /// @notice Used to calculate the price of the very last token, because with uniswap
     /// you'll never be able to buy the very last token, as it diverges to infinity, (1/0)
     uint256 public lastHatPriceInAvax;
-
-    /// @notice Used to keep the number of burned $HAT.
-    uint256 public burnedHatNb;
 
     /// @notice Max Supply of HAT, when initialising, it's equal to the circulating supply.
     uint256 public maxSupply;
 
     /// @notice Keep a list of all the redeemers ordered by time. It will be used at some point...
     address[] public redeemers;
+
+    /// @notice Used to calculate the amount of avax the contract needs to store
+    /// It's equal to k / maxSupply, because there will never be more token than maxSupply.
+    uint256 private reserveLowestAvax;
 
     JoeHatToken hatToken;
     JoeHatNFT hatNft;
@@ -67,16 +62,13 @@ contract JoeHatBondingCurve is Ownable {
         hatNft = JoeHatNFT(joeHatNftAddress);
 
         /// @notice k = x*y = reserveHat * reserveAvax = initialHatSupply * (initialHatSupply * initialHatPrice).
-        k = initialHatSupply * initialHatSupply / 1e18 * initialHatPrice / 1e18;
+        k = initialHatSupply * initialHatSupply * initialHatPrice / 1e36;
 
 
         /// @notice we calculate the reserveHat and reserveAvax as if all the tokens were
         /// owned by the smart contract.
-        reserveHat = totalSupply();
-        maxSupply = reserveHat;
-        reserveAvax = k * 1e18 / totalSupply();
-        reserveLowestAvax = reserveAvax;
-        burnedHatNb = 0;
+        maxSupply = totalSupply();
+        reserveLowestAvax = k * 1e18 / maxSupply;
 
         /// @notice we chose the last hat to be priced 4 times the price of the one before.
         lastHatPriceInAvax = k * 2;
@@ -85,33 +77,49 @@ contract JoeHatBondingCurve is Ownable {
     /*** Public Hooks ***/
 
     /**
-     * @notice Sells a given amount of AVAX for HAT.
+     * @notice Gets the reserveAvax if we were using a uniswap pool.
+     * @return reserveAvax - The reserveAvax of that pool if it was a uniswap pool.
      */
-    function swapExactAvaxForHat(uint256 minHatAmount) external payable {
-        uint256 hatAmount = getHatAmountOutForExactAvaxAmountIn(msg.value);
-
-        require(hatAmount >= minHatAmount, "Front ran");
-
-        hatToken.transfer(_msgSender(), hatAmount);
-
-        _removeHat(hatAmount, msg.value);
-
-        emit SwapAvaxForHat(msg.value, hatAmount);
-    }
-
     function getReserveAvax() public view returns (uint256) {
         uint256 balance = balanceOf(address(this));
         if (balance == 0) {
             return 0;
         }
 
-        uint256 reserveAvaxt = k / balanceOf(address(this));
-        require(address(this).balance >= reserveAvaxt - reserveLowestAvax);
-        return reserveAvaxt;
+        uint256 reserveAvax;
+        if (balance >= 1e18) {
+            reserveAvax = k * 1e18 / balance;
+        }
+        else {
+            /// calculate reserveAvax with lastHat function
+            reserveAvax = k + _getAvaxAmountForLastExactHatAmount(1e18 - balance);
+        }
+
+        require(address(this).balance >= reserveAvax - reserveLowestAvax, 'Critical Error, not enough AVAX');
+
+        return reserveAvax;
     }
 
+    /**
+     * @notice Gets the reserveHat if we were using a uniswap pool.
+     * @return reserveHat - The reserveHat of that pool if it was a uniswap pool.
+     */
     function getReserveHat() public view returns (uint256) {
         return balanceOf(address(this));
+    }
+
+    /**
+     * @notice Sells a given amount of AVAX for HAT.
+     * @param minHatAmount - The min amount of HAT to be received.
+     */
+    function swapExactAvaxForHat(uint256 minHatAmount) external payable {
+        uint256 hatAmount = getHatAmountOutForExactAvaxAmountIn(msg.value);
+
+        require(hatAmount >= minHatAmount, 'Front ran');
+
+        hatToken.transfer(_msgSender(), hatAmount);
+
+        emit SwapAvaxForHat(msg.value, hatAmount);
     }
 
     /**
@@ -125,21 +133,18 @@ contract JoeHatBondingCurve is Ownable {
     /**
      * @notice Sells a given amount of HAT for AVAX with fees deducted.
      * @param hatAmount - The amount of HAT to swap for AVAX.
+     * @param minAvaxAmount - The min amount of AVAX to be received.
      */
     function swapExactHatForAvaxWithFees(uint256 hatAmount, uint256 minAvaxAmount) external {
-        /// Amount that should be sent to the _msgSender, used for the reserveAvax of the contract
-        uint256 avaxAmount = _getAvaxAmountOutForExactHatAmountIn(hatAmount);
-
-        /// Amount that is sent to the _msgSender, approx equal to avaxAmount*a/b
+        /// Amount that is sent to the _msgSender, approx equal to avaxAmount*a/b.
         uint256 avaxAmountWithFees = getAvaxAmountOutForExactHatAmountInWithFees(hatAmount);
 
-        require(avaxAmount >= minAvaxAmount, "Front run");
+        require(avaxAmountWithFees >= minAvaxAmount, 'Front ran');
 
+        /// Transfer hatAmount $HAT to the contract.
         hatToken.transferFrom(_msgSender(), address(this), hatAmount);
+        /// Transfer avaxAmountWithFees $AVAX to the _msgSender().
         payable(_msgSender()).transfer(avaxAmountWithFees);
-
-        /// we add the hat amount to the reserve, and remove the avax that we sent.
-        _addHat(hatAmount, avaxAmount);
 
         emit SwapHatForAvax(hatAmount, avaxAmountWithFees);
     }
@@ -157,8 +162,8 @@ contract JoeHatBondingCurve is Ownable {
      * @return hatAmount - The amount of HAT received.
      */
     function getHatAmountOutForExactAvaxAmountIn(uint256 avaxAmount) public view returns (uint256) {
-//        reserveAvax = getReserveAvax();
-        require(reserveAvax + avaxAmount <= k + lastHatPriceInAvax, "getHatAmountOutForExactAvaxAmountIn: Not enough hat in reserve");
+        uint256 reserveAvax = getReserveAvax();
+        require(reserveAvax + avaxAmount <= k + lastHatPriceInAvax, 'getHatAmountOutForExactAvaxAmountIn: Not enough hat in reserve');
         /// this is added for the VERY last hat
         /// This tests if when user buy that amount he will be buying at least a bit of the last Hat
         /// it needs to check this because the last hat doesn't use the same function
@@ -169,7 +174,7 @@ contract JoeHatBondingCurve is Ownable {
             /// if so it needs to get the price of the previous ones independently
             if (reserveAvax < k) {
                 avaxAmountOld = k - reserveAvax;
-                hatAmountOld = reserveHat - 1e18;
+                hatAmountOld = getReserveHat() - 1e18;
             }
             uint256 hatAmountNew = _getLastHatAmountForExactAvaxAmount(avaxAmount - avaxAmountOld);
             return hatAmountOld + hatAmountNew;
@@ -183,7 +188,8 @@ contract JoeHatBondingCurve is Ownable {
      * @return avaxAmount - The amount of AVAX required.
      */
     function getAvaxAmountInForExactHatAmountOut(uint256 hatAmount) public view returns (uint256) {
-        require(reserveHat >= hatAmount, "getAvaxAmountInForExactHatAmountOut: Not enough HAT in reserve");
+        uint256 reserveHat = getReserveHat();
+        require(reserveHat >= hatAmount, 'getAvaxAmountInForExactHatAmountOut: Not enough HAT in reserve');
         /// this is added for the VERY last hat
         /// This tests if when user buy that amount he will be buying at least a bit of the last Hat
         /// it needs to check this because the last hat doesn't use the same function
@@ -194,7 +200,7 @@ contract JoeHatBondingCurve is Ownable {
             /// if so it needs to get the price of the previous ones independently
             if (reserveHat > 1e18) {
                 hatAmountOld = reserveHat - 1e18;
-                avaxAmountOld = k - reserveAvax;
+                avaxAmountOld = k - getReserveAvax();
             }
             uint256 avaxAmountNew = _getAvaxAmountForLastExactHatAmount(hatAmount - hatAmountOld);
             return avaxAmountOld + avaxAmountNew;
@@ -209,49 +215,24 @@ contract JoeHatBondingCurve is Ownable {
      * @return avaxAmount - The amount of AVAX received.
      */
     function getAvaxAmountOutForExactHatAmountInWithFees(uint256 hatAmount) public view returns (uint256) {
-        require(reserveHat + hatAmount <= maxSupply, "getAvaxAmountOutForExactHatAmountInWithFees : Too much hat sold");
+        require(getReserveHat() + hatAmount <= maxSupply, 'getAvaxAmountOutForExactHatAmountInWithFees: Not enough $HAT');
         return _getAvaxAmountOutForExactHatAmountIn(hatAmount * _a / _b);
     }
 
     /**
-     * @notice Calculates the required amount of HAT to buy a given an amount of AVAX with fees 
+     * @notice Calculates the required amount of HAT to buy a given amount of AVAX with fees
      * taken into account.
      * @param avaxAmount - The amount of AVAX to buy.
      * @return hatAmount - The amount of HAT required.
      */
     function getHatAmountInForExactAvaxAmountOutWithFees(uint256 avaxAmount) public view returns (uint256) {
-        uint256 avaxAmountWithFees = avaxAmount * _b / _a;
-        uint256 hatAmountWithFees = _getHatAmountInForExactAvaxAmountOut(avaxAmountWithFees);
-
-        require(reserveHat + hatAmountWithFees <= maxSupply, "getHatAmountInForExactAvaxAmountOutWithFees : Too much hat sold");
+        uint256 hatAmountWithFees = _getHatAmountInForExactAvaxAmountOut(avaxAmount * _b / _a);
+        require(getReserveHat() + hatAmountWithFees <= maxSupply, 'getHatAmountInForExactAvaxAmountOutWithFees: Not enough $HAT');
         return hatAmountWithFees;
     }
 
 
     /*** Private hooks ***/
-
-    /**
-     * @notice Updates virtual reserves when HATs are added and AVAX subsequently removed.
-     * @dev AVAX reserve is less than actual balance of AVAX held by contract.
-     * @param hatAdded - The number of HATs to add to reserve.
-     * @param avaxRemoved - The number of AVAX to remove from reserve.
-     */
-    function _addHat(uint256 hatAdded, uint256 avaxRemoved) private {
-        require(reserveHat + hatAdded <= totalSupply(), "Too much hat added");
-        reserveHat += hatAdded;
-        reserveAvax -= avaxRemoved;
-    }
-
-    /**
-     * @notice Updates virtual reserves when HATs are removed and AVAX subsequently added.
-     * @dev AVAX reserve is less than actual balance of AVAX held by contract.
-     * @param hatRemoved - The number of HATs to remove from reserve.
-     * @param avaxAdded - The number of AVAX to add to reserve.
-     */
-    function _removeHat(uint256 hatRemoved, uint256 avaxAdded) private {
-        reserveHat -= hatRemoved;
-        reserveAvax += avaxAdded;
-    }
 
     /**
      * @notice Calculates the amount of AVAX received if a given amount of HAT is sold.
@@ -261,6 +242,7 @@ contract JoeHatBondingCurve is Ownable {
      * @return avaxAmount - The amount of AVAX received.
      */
     function _getAvaxAmountOutForExactHatAmountIn(uint256 hatAmount) private view returns (uint256) {
+        uint256 reserveHat = getReserveHat();
         /// this is added for the VERY last hat
         /// This tests if when user buy that amount he will be buying at least a bit of the last Hat
         /// it needs to check this because the last hat doesn't use the same function
@@ -309,7 +291,8 @@ contract JoeHatBondingCurve is Ownable {
      * @return hatAmount - The amount of HAT required.
      */
     function _getHatAmountInForExactAvaxAmountOut(uint256 avaxAmount) private view returns (uint256) {
-        require(reserveAvax - reserveLowestAvax >= avaxAmount, "_getHatAmountInForExactAvaxAmountOut: Too many hat sold");
+        uint256 reserveAvax = getReserveAvax();
+        require(reserveAvax >= avaxAmount, 'Not enough $AVAX in the pool');
         /// this is added for the VERY last hat
         /// This tests if when user buy that amount he will be buying at least a bit of the last Hat
         /// it needs to check this because the last hat doesn't use the same function
@@ -357,17 +340,17 @@ contract JoeHatBondingCurve is Ownable {
     /*** Admin functions ***/
 
     /**
-     * @notice Adds AVAX to the contract.
-     * @dev VERY IMPORTANT : this needs to be called to seed the contract.
-     * if all the tokens are owned by the contract, i.e. not any of the token were or will be given, then
-     * you don't need to seed the contract.
-     * But if some tokens were given or will be, this needs to be called with the exact value of the 
-     * HAT token that were given so that if everyone sells its token, the contract have enough avax 
-     * for this.
+     * @notice Adds $AVAX and $HAT to the contract.
+     * @dev IMPORTANT : this needs to be called to seed the contract, you shouldn't send tokens directly
+     * to the contract. You need to approve the token's contract, with at least the value you'll send to
+     * the contract, which is: k * 1e18 / (avaxAmount + k * 1e18 / maxSupply)).
      */
-    function seedAvax() external payable onlyOwner {
-        _removeHat(getHatAmountOutForExactAvaxAmountIn(msg.value), msg.value);
-        emit SeedAvax(_msgSender(), msg.value);
+    function seedContract() external payable onlyOwner {
+        /// We require this orelse we should use the price of the lastHat and this is too complicated
+        require(msg.value <= k, 'You need to add less $AVAX, so the contracts owns more than 1 $HAT');
+        uint256 hatAmount = k * 1e18 / (msg.value + k * 1e18 / maxSupply);
+        hatToken.transferFrom(_msgSender(), address(this), hatAmount);
+        emit SeedContract(_msgSender(), msg.value, hatAmount);
     }
 
     /**
@@ -376,7 +359,10 @@ contract JoeHatBondingCurve is Ownable {
      */
     function withdrawTeamBalance() public onlyOwner {
         uint256 teamBalance = getTeamBalance();
-        payable(_msgSender()).transfer(teamBalance);
+
+        (bool success, ) = msg.sender.call{value:teamBalance}("");
+        require(success, "Withdraw team balance failed");
+
         emit TeamWithdraw(teamBalance);
     }
 
@@ -389,10 +375,11 @@ contract JoeHatBondingCurve is Ownable {
      * @return teamBalance - The amount of AVAX owned by the contract but not needed.
      */
     function getTeamBalance() public view returns (uint256) {
-        if (address(this).balance < _getAvaxAmountOutForExactHatAmountIn(totalSupply() - balanceOf(address(this)))) {
+        uint256 contractBalance = address(this).balance;
+        if (contractBalance < _getAvaxAmountOutForExactHatAmountIn(totalSupply() - balanceOf(address(this)))) {
             return 0;
         }
-        return address(this).balance - _getAvaxAmountOutForExactHatAmountIn(totalSupply() - balanceOf(address(this)));
+        return contractBalance - _getAvaxAmountOutForExactHatAmountIn(totalSupply() - balanceOf(address(this)));
     }
 
     /**

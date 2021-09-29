@@ -43,6 +43,9 @@ contract JoeHatBondingCurve is Ownable {
     /// you'll never be able to buy the very last token, as it diverges to infinity, (1/0)
     uint256 public lastHatPriceInAvax;
 
+    /// @notice Used to keep the number of burned $HAT.
+    uint256 public burnedHatNb;
+
     /// @notice Max Supply of HAT, when initialising, it's equal to the circulating supply.
     uint256 public maxSupply;
 
@@ -73,6 +76,7 @@ contract JoeHatBondingCurve is Ownable {
         maxSupply = reserveHat;
         reserveAvax = k * 1e18 / totalSupply();
         reserveLowestAvax = reserveAvax;
+        burnedHatNb = 0;
 
         /// @notice we chose the last hat to be priced 4 times the price of the one before.
         lastHatPriceInAvax = k * 2;
@@ -86,13 +90,28 @@ contract JoeHatBondingCurve is Ownable {
     function swapExactAvaxForHat(uint256 minHatAmount) external payable {
         uint256 hatAmount = getHatAmountOutForExactAvaxAmountIn(msg.value);
 
-        require(hatAmount >= minHatAmount, "Front run");
+        require(hatAmount >= minHatAmount, "Front ran");
 
         hatToken.transfer(_msgSender(), hatAmount);
 
         _removeHat(hatAmount, msg.value);
 
         emit SwapAvaxForHat(msg.value, hatAmount);
+    }
+
+    function getReserveAvax() public view returns (uint256) {
+        uint256 balance = balanceOf(address(this));
+        if (balance == 0) {
+            return 0;
+        }
+
+        uint256 reserveAvaxt = k / balanceOf(address(this));
+        require(address(this).balance >= reserveAvaxt - reserveLowestAvax);
+        return reserveAvaxt;
+    }
+
+    function getReserveHat() public view returns (uint256) {
+        return balanceOf(address(this));
     }
 
     /**
@@ -111,11 +130,10 @@ contract JoeHatBondingCurve is Ownable {
         /// Amount that should be sent to the _msgSender, used for the reserveAvax of the contract
         uint256 avaxAmount = _getAvaxAmountOutForExactHatAmountIn(hatAmount);
 
-
         /// Amount that is sent to the _msgSender, approx equal to avaxAmount*a/b
         uint256 avaxAmountWithFees = getAvaxAmountOutForExactHatAmountInWithFees(hatAmount);
 
-        require(avaxAmountWithFees >= minAvaxAmount, "Front run");
+        require(avaxAmount >= minAvaxAmount, "Front run");
 
         hatToken.transferFrom(_msgSender(), address(this), hatAmount);
         payable(_msgSender()).transfer(avaxAmountWithFees);
@@ -139,6 +157,7 @@ contract JoeHatBondingCurve is Ownable {
      * @return hatAmount - The amount of HAT received.
      */
     function getHatAmountOutForExactAvaxAmountIn(uint256 avaxAmount) public view returns (uint256) {
+//        reserveAvax = getReserveAvax();
         require(reserveAvax + avaxAmount <= k + lastHatPriceInAvax, "getHatAmountOutForExactAvaxAmountIn: Not enough hat in reserve");
         /// this is added for the VERY last hat
         /// This tests if when user buy that amount he will be buying at least a bit of the last Hat

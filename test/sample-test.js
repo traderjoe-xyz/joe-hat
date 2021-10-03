@@ -123,6 +123,7 @@ describe('JoeHatBondingCurve', () => {
         expect((await this.hat.balanceOf(this.carol.address)).toString()).to.equal((hatAmount).toString())
         expect((await this.hat.balanceOf(this.hat.address)).toString()).to.equal((new BN('1500000000000000000'))
             .sub((new BN(hatAmount.toString()))).toString())
+        console.log((await this.hat.balanceOf(this.hat.address)).toString())
     })
 
     after(async function () {

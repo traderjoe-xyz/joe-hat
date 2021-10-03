@@ -3,7 +3,6 @@
 pragma solidity ^0.8.0;
 
 import './JoeHatToken.sol';
-import './JoeHatNFT.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 
 /**
@@ -48,7 +47,6 @@ contract JoeHatBondingCurve is Ownable {
     uint256 private reserveLowestAvax;
 
     JoeHatToken hatToken;
-    JoeHatNFT hatNft;
 
 
     /**
@@ -57,9 +55,8 @@ contract JoeHatBondingCurve is Ownable {
      * @param initialHatSupply - $HAT initial supply.
      * @param initialHatPrice - $HAT initial price in AVAX.
      */
-    constructor(address joeHatNftAddress, address joeHatAddress, uint256 initialHatSupply, uint256 initialHatPrice) {
+    constructor(address joeHatAddress, uint256 initialHatSupply, uint256 initialHatPrice) {
         hatToken = JoeHatToken(joeHatAddress);
-        hatNft = JoeHatNFT(joeHatNftAddress);
 
         /// @notice k = x*y = reserveHat * reserveAvax = initialHatSupply * (initialHatSupply * initialHatPrice).
         k = initialHatSupply * initialHatSupply * initialHatPrice / 1e36;
@@ -81,13 +78,14 @@ contract JoeHatBondingCurve is Ownable {
      * @return reserveAvax - The reserveAvax of that pool if it was a uniswap pool.
      */
     function getReserveAvax() public view returns (uint256) {
-        uint256 balance = balanceOf(address(this));
+        uint256 balance = getReserveHat();
         if (balance == 0) {
             return 0;
         }
 
         uint256 reserveAvax;
         if (balance >= 1e18) {
+
             reserveAvax = k * 1e18 / balance;
         }
         else {
@@ -95,7 +93,7 @@ contract JoeHatBondingCurve is Ownable {
             reserveAvax = k + _getAvaxAmountForLastExactHatAmount(1e18 - balance);
         }
 
-        require(address(this).balance >= reserveAvax - reserveLowestAvax, 'Critical Error, not enough AVAX');
+//        require(address(this).balance >= reserveAvax - reserveLowestAvax, 'Critical Error, not enough AVAX');
 
         return reserveAvax;
     }
@@ -130,8 +128,6 @@ contract JoeHatBondingCurve is Ownable {
         uint256 avaxAmount = getAvaxAmountInForExactHatAmountOut(exactHatAmount);
 
         require(avaxAmount <= msg.value, "Front ran");
-
-        hatToken.transfer(_msgSender(), exactHatAmount);
 
         uint256 avaxLeftover = msg.value - avaxAmount;
 
@@ -388,7 +384,7 @@ contract JoeHatBondingCurve is Ownable {
     function withdrawTeamBalance() public onlyOwner {
         uint256 teamBalance = getTeamBalance();
 
-        (bool success, ) = msg.sender.call{value:teamBalance}("");
+        (bool success, ) = owner().call{value:teamBalance}("");
         require(success, "Withdraw team balance failed");
 
         emit TeamWithdraw(teamBalance);
@@ -440,7 +436,6 @@ contract JoeHatBondingCurve is Ownable {
      */
     function redeemHat() public {
         hatToken.burnFrom(_msgSender(), 1e18);
-        hatNft.mint(_msgSender());
         redeemers.push(_msgSender());
     }
 }

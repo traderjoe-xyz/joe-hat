@@ -6,7 +6,6 @@ describe('JoeHatBondingCurve', () => {
     before(async function () {
         this.JoeHatToken = await ethers.getContractFactory('JoeHatToken');
         this.JoeHatBondingCurve = await ethers.getContractFactory('JoeHatBondingCurve');
-        this.JoeHatNFT = await ethers.getContractFactory('JoeHatNFT');
         this.signers = await ethers.getSigners();
         this.alice = this.signers[0];
         this.bob = this.signers[1];
@@ -21,10 +20,7 @@ describe('JoeHatBondingCurve', () => {
         this.token = await this.JoeHatToken.deploy();
         await this.token.deployed();
 
-        this.nft = await this.JoeHatNFT.deploy();
-        await this.nft.deployed();
-
-        this.hat = await this.JoeHatBondingCurve.deploy(this.nft.address, this.token.address, '20000000000000000000', '5000000000000000000');
+        this.hat = await this.JoeHatBondingCurve.deploy(this.token.address, '20000000000000000000', '5000000000000000000');
         await this.hat.deployed();
 
         await this.hat.transferOwnership(this.owner.address)
@@ -33,8 +29,6 @@ describe('JoeHatBondingCurve', () => {
 
         await this.token.connect(this.owner).approve(this.hat.address, '20000000000000000000');
         await this.hat.connect(this.owner).seedContract({value: '86666666666666666667'});
-
-        await this.nft.grantRole('0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6', this.hat.address);
     });
 
     it('should have correct totalSupply, reserveHat, reserveAvax, k, _a, _b', async function () {
@@ -96,14 +90,14 @@ describe('JoeHatBondingCurve', () => {
     it('should buy all the stock', async function () {
         // buys 19 hats
         const avaxAmount = await this.hat.getAvaxAmountInForExactHatAmountOut('19000000000000000000')
-        await this.hat.connect(this.bob).swapExactAvaxForHat('19000000000000000000', {value: avaxAmount})
+        await this.hat.connect(this.bob).swapAvaxForExactHat('19000000000000000000', {value: avaxAmount})
         expect((await this.hat.balanceOf(this.bob.address)).toString()).to.equal('19000000000000000000')
         expect((await this.hat.balanceOf(this.hat.address)).toString()).to.equal('1000000000000000000')
 
 
         // buys the last hat
         const avaxAmount2 = await this.hat.getAvaxAmountInForExactHatAmountOut('1000000000000000000')
-        await this.hat.connect(this.alice).swapExactAvaxForHat('1000000000000000000', {value: avaxAmount2})
+        await this.hat.connect(this.alice).swapAvaxForExactHat('1000000000000000000', {value: avaxAmount2})
         expect((await this.hat.balanceOf(this.alice.address)).toString()).to.equal('1000000000000000000')
         expect((await this.hat.balanceOf(this.hat.address)).toString()).to.equal('0')
 
@@ -125,6 +119,7 @@ describe('JoeHatBondingCurve', () => {
             .sub((new BN(hatAmount.toString()))).toString())
         console.log((await this.hat.balanceOf(this.hat.address)).toString())
     })
+
 
     after(async function () {
         await network.provider.request({
